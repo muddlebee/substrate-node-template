@@ -4,6 +4,7 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
+use frame_support::log;
 
 #[cfg(test)]
 mod mock;
@@ -91,18 +92,21 @@ pub mod pallet {
 		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
-			// Read a value from storage.
 			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
+				None => {
+					log::error!("Error: Value not set");
+					return Err(Error::<T>::NoneValue.into());
+				},
 				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
+					let new = old.checked_add(1).ok_or_else(|| {
+						log::error!("Error: Storage overflow");
+						Error::<T>::StorageOverflow
+					})?;
 					<Something<T>>::put(new);
 					Ok(())
 				},
 			}
 		}
+
 	}
 }
