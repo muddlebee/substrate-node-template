@@ -1,112 +1,75 @@
+#![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
-use frame_support::log;
-
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-pub mod weights;
-pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
+    use frame_support::traits::{Currency, Randomness};
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// Type representing the weight of this pallet
-		type WeightInfo: WeightInfo;
-	}
+    // The basis which we buil
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
+    // Allows easy access our Pallet's `Balance` type. Comes from `Currency` interface.
+    type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/main-docs/build/events-errors/
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
-	}
+    // The Gender type used in the `Kitty` struct
+    #[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+    pub enum Gender {
+        Male,
+        Female,
+    }
 
-	// Errors inform users that something went wrong.
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
-	}
+    // Struct for holding kitty information
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+    #[scale_info(skip_type_params(T))]
+    pub struct Kitty<T: Config> {
+        // Using 16 bytes to represent a kitty DNA
+        pub dna: [u8; 16],
+        // `None` assumes not for sale
+        pub price: Option<BalanceOf<T>>,
+        pub gender: Gender,
+        pub owner: T::AccountId,
+    }
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::do_something())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let who = ensure_signed(origin)?;
+    /* Placeholder for defining custom storage items. */
 
-			// Update storage.
-			<Something<T>>::put(something);
+    // Your Pallet's configuration trait, representing custom external types and interfaces.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
+        /// The Currency handler for the kitties pallet.
+        type Currency: Currency<Self::AccountId>;
 
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::cause_error())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+        /// The maximum amount of kitties a single account can own.
+        #[pallet::constant]
+        type MaxKittiesOwned: Get<u32>;
 
-			match <Something<T>>::get() {
-				None => {
-					log::error!("Error: Value not set");
-					return Err(Error::<T>::NoneValue.into());
-				},
-				Some(old) => {
-					let new = old.checked_add(1).ok_or_else(|| {
-						log::error!("Error: Storage overflow");
-						Error::<T>::StorageOverflow
-					})?;
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
-		}
+        // This line ensures that your pallet's configuration trait provides a BlockNumber type
+        type BlockNumber = Self::BlockNumber;
+        /// The type of Randomness we want to specify for this pallet.
+        type KittyRandomness: Randomness<Self::Hash, Self::BlockNumber>;
+    }
 
-	}
+    // Your Pallet's events.
+    #[pallet::event]
+    #[pallet::generate_deposit(pub (super) fn deposit_event)]
+    pub enum Event<T: Config> {}
+
+    // Your Pallet's error messages.
+    #[pallet::error]
+    pub enum Error<T> {}
+
+    // Your Pallet's callable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {}
+
+    // Your Pallet's internal functions.
+    impl<T: Config> Pallet<T> {}
 }
